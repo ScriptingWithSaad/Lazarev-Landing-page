@@ -229,6 +229,13 @@ nav.dropdown-open .nav-bottom {
   padding: 9px 0;
   line-height: 1.5;
 }
+.submenu-item > a > span {
+  display: inline-block;
+}
+nav.motion-nav .nav-bottom,
+nav.motion-nav .submenu {
+  transition: none;
+}
 .submenu-item a:hover {
   color: #8de1b0;
 }
@@ -367,7 +374,8 @@ main {
   height: 80%;
   border: 2px dashed #fff;
   border-radius: 50%;
-  animation: rotate-border 16s linear infinite;
+  animation: rotate-border 10s linear infinite;
+  animation-play-state: paused;
   pointer-events: none;
   transition:
     border-color 0.2s,
@@ -398,8 +406,11 @@ main {
   text-shadow: 0 2px 6px #000;
 }
 .button-div:hover .button-overlay {
-  border-color: var(--green);
+  border-color: transparent;
   background: var(--green);
+}
+.video.reel-in-view .button-overlay {
+  animation-play-state: running;
 }
 .button-div:hover button {
   background: transparent;
@@ -898,8 +909,8 @@ main {
   opacity: 0;
   z-index: -1;
   transition:
-    transform 0.4s var(--ease),
-    opacity 0.3s;
+    transform 0.65s var(--ease),
+    opacity 0.5s;
 }
 .p10-elem-r-box:hover {
   border-color: #fff;
@@ -911,10 +922,10 @@ main {
 .p10-elem-r-box h4 {
   font-size: clamp(20px, 1.7vw, 27px);
   font-weight: 500;
-  transition: transform 0.3s var(--ease);
+  transition: transform 0.65s var(--ease);
 }
 .p10-elem-r-box:hover h4 {
-  transform: translateX(8px);
+  transform: translateX(clamp(8px, 1vw, 16px));
 }
 .p10-elem-r-box p {
   font-size: 12px;
@@ -923,6 +934,10 @@ main {
 }
 .p10-elem-r-box > p:last-child {
   justify-self: end;
+  transition: transform 0.65s var(--ease);
+}
+.p10-elem-r-box:hover > p:last-child {
+  transform: translateX(-12px);
 }
 .p10-elem-r-box .icon {
   width: 20px;
@@ -985,7 +1000,7 @@ main {
   flex-direction: column;
   gap: 7px;
   margin-top: 25px;
-  padding-right: 25px;
+  padding-right: clamp(16px, 5vw, 72px);
 }
 .p11-elem-p > p {
   display: flex;
@@ -1011,19 +1026,19 @@ main {
   font-size: 9px;
 }
 .p11-elem-p > p:nth-child(2) {
-  transform: translateX(5px);
+  transform: translateX(min(1vw, 72px));
 }
 .p11-elem-p > p:nth-child(3) {
-  transform: translateX(10px);
+  transform: translateX(min(2vw, 72px));
 }
 .p11-elem-p > p:nth-child(4) {
-  transform: translateX(15px);
+  transform: translateX(min(3vw, 72px));
 }
 .p11-elem-p > p:nth-child(5) {
-  transform: translateX(20px);
+  transform: translateX(min(4vw, 72px));
 }
 .p11-elem-p > p:nth-child(6) {
-  transform: translateX(25px);
+  transform: translateX(min(5vw, 72px));
 }
 .page-12 {
   padding: 80px var(--gutter) 45px;
@@ -1066,15 +1081,19 @@ main {
   padding: 5px 0;
 }
 .reel-dialog {
-  inset: 0;
-  margin: auto;
+  position: fixed;
+  z-index: 200;
+  inset: var(--dialog-top, 0px) 0 auto;
+  margin: 0;
   background: #111;
   color: #fff;
-  border: 1px solid #4b4b4b;
-  border-radius: 14px;
-  width: min(1000px, calc(100% - 48px));
-  max-height: calc(100dvh - 48px);
-  padding: 0;
+  border: 0;
+  border-radius: 0;
+  width: var(--dialog-width, 100vw);
+  max-width: none;
+  height: var(--dialog-height, 100dvh);
+  max-height: none;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -1083,6 +1102,9 @@ main {
 }
 .reel-dialog[open] {
   animation: dialog-fade 0.18s ease;
+}
+.reel-dialog.motion-reel[open] {
+  animation: none;
 }
 .reel-dialog header {
   display: flex;
@@ -1114,8 +1136,9 @@ main {
 }
 .reel-dialog video {
   width: 100%;
-  max-height: calc(var(--dialog-height, 100dvh) - 125px);
-  aspect-ratio: 16/9;
+  height: calc(var(--dialog-height, 100dvh) - 125px);
+  max-height: none;
+  aspect-ratio: auto;
   object-fit: contain;
   background: #000;
 }
@@ -1768,12 +1791,11 @@ body.menu-active {
     padding: 25px 20px;
   }
   .p11-elem-p {
-    padding-right: 0;
+    padding-right: max(16px, 5vw);
   }
   .p11-elem-p > p {
     font-size: 13px;
     padding-right: 20px;
-    transform: none !important;
   }
   .p11-elem-box > p {
     font-size: 14px;
@@ -1799,9 +1821,6 @@ body.menu-active {
 @media (hover: none), (pointer: coarse) {
   .moving-circle {
     display: none;
-  }
-  .button-overlay {
-    animation: none;
   }
   .action:hover {
     transform: none;

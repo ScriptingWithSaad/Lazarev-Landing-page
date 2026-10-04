@@ -10,9 +10,10 @@ A responsive HTML, CSS and JavaScript recreation of the Lazarev agency website b
 - A keyboard-accessible mobile menu with expandable groups and working section links.
 - Native touch scrolling. Desktop wheel smoothing uses Lenis with the same GSAP ticker as ScrollTrigger, avoiding nested transformed scroll containers.
 - Transform-based decorative parallax, subtle card reveals, a cursor follower on desktop and reversible service accordions.
+- The original unfolding hero, staggered navbar labels, rotating showreel ring and service hover treatment are restored. Every process column scrubs from straight rows into its 1vw staircase and reverses when scrolling back, including on phones.
 - Reduced-motion preferences remove decorative motion and autoplay. Data-saving mode also suppresses automatic previews. Content remains visible when motion libraries are unavailable.
 - Project previews support both hover and explicit play/pause buttons. Offscreen and background-tab previews pause.
-- The full showreel loads only when requested and opens in a native modal. Phones and tablets get a viewport-sized player, including landscape and browser viewport changes; closing restores focus and the page position.
+- The full showreel loads only when requested and expands from its thumbnail into a native fullscreen modal. Closing animates back and restores focus and the page position. The player follows portrait, landscape and browser viewport changes.
 - Self-hosted fonts, scripts, local logos, small article thumbnails and optimized video previews. The original full showreel and source media are retained.
 
 ## Local development
@@ -37,6 +38,6 @@ To regenerate previews and thumbnails, install `Pillow` and `imageio-ffmpeg`, th
 
 ## Validation
 
-Checked in Chromium at 320, 360, 390, 430, 768, 1024, 1100, 1280 and 1920px widths, plus a compact 1110px desktop and 844×390 landscape. Checks cover page overflow, mobile submenus, section navigation, accordions, video play/pause, full-screen modal sizing, Escape/close, focus restoration and console errors. Viewport checks do not replace testing on physical devices.
+Checked in Chromium at 320, 360, 390, 430, 768, 1024, 1100, 1280 and 1920px widths, plus a compact 1110px desktop and 844×390 landscape. Checks cover page overflow, mobile submenus, section navigation, reversible process scrubbing on phones and desktops, cursor tracking, service hover effects, accordions, video play/pause, full-screen modal sizing through orientation changes, Escape/close, focus restoration and console errors. Viewport checks do not replace testing on physical devices.
 
 Branding and media are retained for this educational recreation. See [third-party notices](THIRD_PARTY.md).

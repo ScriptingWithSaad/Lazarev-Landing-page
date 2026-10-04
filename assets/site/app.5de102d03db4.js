@@ -6,7 +6,9 @@
   const main = document.querySelector("main");
   const menu = document.querySelector(".menu-toggle");
   const groups = [...document.querySelectorAll(".mid-nav-elem")];
-  const mobile = matchMedia("(max-width: 1100px), (hover: none), (pointer: coarse)");
+  const mobile = matchMedia(
+    "(max-width: 1100px), (hover: none), (pointer: coarse)",
+  );
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
   const saveData = navigator.connection?.saveData;
@@ -14,6 +16,9 @@
   const ScrollTrigger = window.ScrollTrigger;
   const canAnimate = !!(gsap && ScrollTrigger);
   let lenis;
+  let navMotion;
+  let dropdownWanted = false;
+  let introPlayed = false;
   let refreshTimer;
   const refresh = () => {
     clearTimeout(refreshTimer);
@@ -25,13 +30,23 @@
   if (canAnimate) gsap.registerPlugin(ScrollTrigger);
 
   function dropdown(open) {
-    nav.classList.toggle("dropdown-open", open && !mobile.matches);
+    dropdownWanted = open && !mobile.matches;
+    if (navMotion) {
+      if (dropdownWanted) {
+        nav.classList.add("dropdown-open");
+        navMotion.timeScale(1).play();
+      } else {
+        navMotion.timeScale(1.8).reverse();
+      }
+    } else {
+      nav.classList.toggle("dropdown-open", dropdownWanted);
+    }
     groups.forEach((group) => {
       const submenu = group.querySelector(".submenu");
       if (submenu)
         submenu.inert = mobile.matches
           ? !group.classList.contains("expanded")
-          : !open;
+          : !dropdownWanted;
     });
   }
   function closeMenu(restoreFocus = false) {
@@ -61,11 +76,31 @@
       const open = group.classList.toggle("expanded");
       toggle.setAttribute("aria-expanded", String(open));
       group.querySelector(".submenu").inert = !open;
+      if (canAnimate && !reduced.matches) {
+        const labels = group.querySelectorAll(".submenu-item a span");
+        gsap.killTweensOf(labels);
+        if (open)
+          gsap.fromTo(
+            labels,
+            { y: 12, opacity: 0 },
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.22,
+              stagger: 0.035,
+              ease: "power2.out",
+              clearProps: "transform,opacity",
+            },
+          );
+        else gsap.set(labels, { clearProps: "transform,opacity" });
+      }
     });
   });
-  nav.addEventListener("pointerenter", (event) => {
-    if (event.pointerType !== "touch" && finePointer.matches) dropdown(true);
-  });
+  document
+    .querySelector(".mid-nav")
+    .addEventListener("pointerenter", (event) => {
+      if (event.pointerType !== "touch" && finePointer.matches) dropdown(true);
+    });
   nav.addEventListener("pointerleave", () => {
     if (!nav.contains(document.activeElement)) dropdown(false);
   });
@@ -95,6 +130,7 @@
     }
   });
   document.addEventListener("pointerdown", (event) => {
+    if (dialog.open) return;
     if (!nav.contains(event.target)) {
       closeMenu();
       dropdown(false);
@@ -133,7 +169,8 @@
     revealTarget(target);
     history.pushState(null, "", hash);
     if (lenis)
-      lenis.scrollTo(target, { offset: -nav.offsetHeight - 24, duration: 0.8 });
+      // Lenis reads the same CSS scroll-padding as native scrolling.
+      lenis.scrollTo(target, { duration: 0.8 });
     else
       target.scrollIntoView({
         behavior: reduced.matches ? "instant" : "smooth",
@@ -164,7 +201,6 @@
     }),
   );
   let backgroundVisible = false;
-  let backgroundRequest = 0;
   function attachSource(video) {
     if (!video.getAttribute("src")) {
       video.src = video.dataset.src;
@@ -172,7 +208,6 @@
     }
   }
   function syncBackground() {
-    const request = ++backgroundRequest;
     if (
       !backgroundVisible ||
       reduced.matches ||
@@ -187,7 +222,14 @@
     background
       .play()
       .then(() => {
-        if (request !== backgroundRequest) background.pause();
+        if (
+          !backgroundVisible ||
+          reduced.matches ||
+          saveData ||
+          document.hidden ||
+          dialog.open
+        )
+          background.pause();
       })
       .catch(() => {});
   }
@@ -226,11 +268,20 @@
       state.video
         .play()
         .then(() => {
-          if (request !== state.request) state.video.pause();
+          const wanted =
+            state.visible &&
+            !document.hidden &&
+            !dialog.open &&
+            (state.userPlaying ||
+              (state.hovered &&
+                finePointer.matches &&
+                !reduced.matches &&
+                !saveData));
+          if (!wanted) state.video.pause();
           updateButton();
         })
         .catch(() => {
-          state.userPlaying = false;
+          if (request === state.request) state.userPlaying = false;
           updateButton();
         });
     };
@@ -258,18 +309,59 @@
   const reelStatus = document.querySelector("#reel-status");
   let lockedY = 0;
   let opener;
+  let reelClosing = false;
+  function clearReelMotion() {
+    if (gsap) {
+      gsap.killTweensOf(dialog);
+      gsap.set(dialog, { clearProps: "transform,transformOrigin,opacity" });
+    }
+    if (!dialog.open) dialog.classList.remove("motion-reel");
+  }
+  function finishReelClose() {
+    clearReelMotion();
+    dialog.close();
+  }
+  function closeReel() {
+    if (!dialog.open || reelClosing) return;
+    reelClosing = true;
+    fullReel.pause();
+    if (!canAnimate || reduced.matches) return finishReelClose();
+    gsap.killTweensOf(dialog);
+    gsap.set(dialog, { clearProps: "transform,transformOrigin,opacity" });
+    const target = document.querySelector(".video").getBoundingClientRect();
+    const player = dialog.getBoundingClientRect();
+    const targetVisible = target.bottom > 0 && target.top < innerHeight;
+    dialog.classList.add("motion-reel");
+    gsap.to(dialog, {
+      x: targetVisible ? target.left - player.left : 0,
+      y: targetVisible ? target.top - player.top : 0,
+      scaleX: targetVisible ? target.width / player.width : 0.96,
+      scaleY: targetVisible ? target.height / player.height : 0.96,
+      transformOrigin: "0 0",
+      opacity: 0,
+      duration: 0.35,
+      ease: "power2.inOut",
+      onComplete: finishReelClose,
+    });
+  }
   function syncDialogViewport() {
     if (!dialog.open) return;
     const viewport = window.visualViewport;
-    dialog.style.setProperty("--dialog-top", `${viewport?.offsetTop || 0}px`);
-    dialog.style.setProperty(
-      "--dialog-width",
-      `${viewport?.width || innerWidth}px`,
-    );
-    dialog.style.setProperty(
-      "--dialog-height",
-      `${viewport?.height || innerHeight}px`,
-    );
+    const top = `${viewport?.offsetTop || 0}px`;
+    const width = `${viewport?.width || innerWidth}px`;
+    const height = `${viewport?.height || innerHeight}px`;
+    // Scroll-lock events can fire without a viewport change; keep the expansion running.
+    if (
+      dialog.style.getPropertyValue("--dialog-top") === top &&
+      dialog.style.getPropertyValue("--dialog-width") === width &&
+      dialog.style.getPropertyValue("--dialog-height") === height
+    )
+      return;
+    if (reelClosing) return finishReelClose();
+    clearReelMotion();
+    dialog.style.setProperty("--dialog-top", top);
+    dialog.style.setProperty("--dialog-width", width);
+    dialog.style.setProperty("--dialog-height", height);
   }
   watch.addEventListener("click", () => {
     if (typeof dialog.showModal !== "function") {
@@ -277,13 +369,41 @@
       return;
     }
     closeMenu();
+    const thumbnail = document.querySelector(".video").getBoundingClientRect();
     opener = document.activeElement;
     lockedY = scrollY;
     lenis?.stop();
     document.body.style.setProperty("--locked-y", `${-lockedY}px`);
     document.body.classList.add("reel-locked");
     dialog.showModal();
+    nav.inert = true;
+    main.inert = true;
     syncDialogViewport();
+    if (canAnimate && !reduced.matches) {
+      const player = dialog.getBoundingClientRect();
+      dialog.classList.add("motion-reel");
+      gsap.fromTo(
+        dialog,
+        {
+          x: thumbnail.left - player.left,
+          y: thumbnail.top - player.top,
+          scaleX: thumbnail.width / player.width,
+          scaleY: thumbnail.height / player.height,
+          transformOrigin: "0 0",
+          opacity: 0.4,
+        },
+        {
+          x: 0,
+          y: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1,
+          duration: 0.55,
+          ease: "power3.inOut",
+          onComplete: clearReelMotion,
+        },
+      );
+    }
     syncBackground();
     projects.forEach((state) => state.sync());
     reelStatus.textContent = "Loading showreel…";
@@ -293,18 +413,39 @@
         reelStatus.textContent = "Press play in the video player to start.";
     });
   });
-  document
-    .querySelector(".reel-close")
-    .addEventListener("click", () => dialog.close());
+  document.querySelector(".reel-close").addEventListener("click", closeReel);
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
+    // Only the backdrop is a close target; whitespace inside the player is not.
+    const rect = dialog.getBoundingClientRect();
+    if (
+      event.target === dialog &&
+      (event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom)
+    )
+      closeReel();
+  });
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeReel();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && dialog.open) {
+      event.preventDefault();
+      closeReel();
+    }
   });
   dialog.addEventListener("close", () => {
+    clearReelMotion();
+    reelClosing = false;
     fullReel.pause();
     fullReel.removeAttribute("src");
     fullReel.load();
     document.body.classList.remove("reel-locked");
     document.body.style.removeProperty("--locked-y");
+    nav.inert = false;
+    main.inert = false;
     const html = document.documentElement;
     html.style.scrollBehavior = "auto";
     window.scrollTo(0, lockedY);
@@ -313,6 +454,7 @@
     requestAnimationFrame(() => html.style.removeProperty("scroll-behavior"));
     opener?.focus({ preventScroll: true });
     syncBackground();
+    projects.forEach((state) => state.sync());
   });
   fullReel.addEventListener("playing", () => {
     reelStatus.textContent = "";
@@ -336,6 +478,9 @@
         entries.forEach((entry) => {
           if (entry.target === background) {
             backgroundVisible = entry.isIntersecting;
+            document
+              .querySelector(".video")
+              .classList.toggle("reel-in-view", backgroundVisible);
             syncBackground();
           } else {
             const state = projects.find((item) => item.video === entry.target);
@@ -361,6 +506,10 @@
     projects.forEach((state) => state.sync());
   });
   reduced.addEventListener("change", () => {
+    if (dialog.open) {
+      if (reelClosing) finishReelClose();
+      else clearReelMotion();
+    }
     syncBackground();
     projects.forEach((state) => state.sync());
   });
@@ -388,6 +537,7 @@
         lenis.on("scroll", ScrollTrigger.update);
         gsap.ticker.add(tick);
         gsap.ticker.lagSmoothing(0);
+        if (dialog.open) lenis.stop();
         document.documentElement.classList.add("desktop-smooth");
         return () => {
           gsap.ticker.remove(tick);
@@ -398,14 +548,50 @@
       },
     );
     media.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap.from(".page-1 h1, .page-1-p-1, .page-1-p-2", {
-        y: 20,
-        opacity: 0,
-        duration: 0.65,
-        stagger: 0.07,
-        ease: "power2.out",
-        clearProps: "all",
-      });
+      // Restore the original unfolding hero, then reveal the navigation and copy.
+      // Play once at the top; resizing or following a deep link must not replay it.
+      if (!introPlayed) {
+        introPlayed = true;
+        if (
+          scrollY < 80 &&
+          (!location.hash || ["#home", "#main"].includes(location.hash))
+        ) {
+          gsap
+            .timeline({ id: "hero-opening" })
+            .from(".page-1", {
+              scaleX: 0.7,
+              scaleY: 0,
+              opacity: 0,
+              borderRadius: 100,
+              transformOrigin: "50% 50%",
+              duration: 1,
+              ease: "expo.out",
+              clearProps: "transform,transformOrigin,opacity,borderRadius",
+            })
+            .from(
+              nav,
+              {
+                opacity: 0,
+                y: -10,
+                duration: 0.35,
+                clearProps: "opacity,transform",
+              },
+              0.2,
+            )
+            .from(
+              ".page-1 h1, .page-1 p",
+              {
+                y: 16,
+                opacity: 0,
+                duration: 0.4,
+                stagger: 0.08,
+                ease: "power2.out",
+                clearProps: "transform,opacity",
+              },
+              0.6,
+            );
+        }
+      }
       const revealItems = gsap.utils.toArray(
         ".p3-elem-box, .p6-elem-box, .p9-elem-left",
       );
@@ -427,6 +613,37 @@
           ),
       });
       refresh();
+      // Each process column goes from straight rows to the original 1vw staircase.
+      // A single timeline per column scrubs both directions on phones and desktops.
+      document.querySelectorAll(".p11-elem-p").forEach((list, column) => {
+        const bars = [...list.children];
+        gsap
+          .timeline({
+            scrollTrigger: {
+              id: `process-column-${column + 1}`,
+              trigger: list,
+              start: "top 80%",
+              end: "top 10%",
+              scrub: true,
+              invalidateOnRefresh: true,
+            },
+          })
+          .fromTo(
+            bars,
+            { x: 0 },
+            {
+              x: (index, bar) => {
+                const available = Math.max(
+                  0,
+                  list.clientWidth - bar.offsetWidth,
+                );
+                return Math.min((index * innerWidth) / 100, 72, available);
+              },
+              duration: 1,
+              ease: "none",
+            },
+          );
+      });
     });
     media.add(
       "(min-width: 801px) and (prefers-reduced-motion: no-preference)",
@@ -441,22 +658,54 @@
             scrub: 0.18,
           },
         });
-        document.querySelectorAll(".p11-elem-p > p").forEach((bar, index) =>
-          gsap.to(bar, {
-            x: Math.min((index % 6) * 5 + 10, 28),
-            ease: "none",
-            scrollTrigger: {
-              trigger: ".p11-elem-2",
-              start: "top 90%",
-              end: "bottom 40%",
-              scrub: 0.18,
-            },
-          }),
-        );
       },
     );
     media.add(
       "(min-width: 1101px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
+      () => {
+        const panel = nav.querySelector(".nav-bottom");
+        const links = nav.querySelectorAll(".submenu-item a span");
+        nav.classList.add("motion-nav");
+        navMotion = gsap
+          .timeline({
+            paused: true,
+            onReverseComplete: () => {
+              if (!dropdownWanted) nav.classList.remove("dropdown-open");
+            },
+          })
+          .fromTo(
+            panel,
+            { scaleY: 0, opacity: 0 },
+            {
+              scaleY: 1,
+              opacity: 1,
+              duration: 0.32,
+              ease: "power3.out",
+            },
+          )
+          .fromTo(
+            links,
+            { y: 20, opacity: 0 },
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.22,
+              stagger: 0.025,
+              ease: "power2.out",
+            },
+            0.15,
+          );
+        if (dropdownWanted) navMotion.progress(1);
+        return () => {
+          navMotion.kill();
+          navMotion = undefined;
+          nav.classList.remove("motion-nav", "dropdown-open");
+          gsap.set([panel, ...links], { clearProps: "transform,opacity" });
+        };
+      },
+    );
+    media.add(
+      "(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
       () => {
         const cleanups = [];
         document.querySelectorAll(".p8-elem-r-box").forEach((row) => {
@@ -464,41 +713,78 @@
           if (!circle) return;
           gsap.set(circle, { xPercent: -50, yPercent: -50 });
           const xTo = gsap.quickTo(circle, "x", {
-            duration: 0.25,
+            duration: 0.14,
             ease: "power3.out",
           });
           const yTo = gsap.quickTo(circle, "y", {
-            duration: 0.25,
+            duration: 0.14,
             ease: "power3.out",
           });
+          let hovered = false;
           const move = (event) => {
             const rect = row.getBoundingClientRect();
-            xTo(event.clientX - rect.left);
-            yTo(event.clientY - rect.top);
+            const radius = circle.offsetWidth / 2;
+            xTo(
+              Math.max(
+                radius,
+                Math.min(event.clientX - rect.left, rect.width - radius),
+              ),
+            );
+            yTo(
+              Math.max(
+                radius,
+                Math.min(event.clientY - rect.top, rect.height - radius),
+              ),
+            );
           };
           const enter = (event) => {
+            hovered = true;
             move(event);
             gsap.to(circle, {
               opacity: 1,
               scale: 1,
               duration: 0.2,
-              overwrite: true,
+              overwrite: "auto",
             });
           };
-          const leave = () =>
+          const hide = () =>
             gsap.to(circle, {
               opacity: 0,
               scale: 0,
               duration: 0.2,
-              overwrite: true,
+              overwrite: "auto",
             });
+          const leave = () => {
+            hovered = false;
+            if (!row.contains(document.activeElement)) hide();
+          };
+          const focus = () => {
+            const rect = row.getBoundingClientRect();
+            move({
+              clientX: rect.left + rect.width / 2,
+              clientY: rect.top + rect.height / 2,
+            });
+            gsap.to(circle, {
+              opacity: 1,
+              scale: 1,
+              duration: 0.2,
+              overwrite: "auto",
+            });
+          };
+          const blur = () => {
+            if (!hovered) hide();
+          };
           row.addEventListener("pointerenter", enter);
           row.addEventListener("pointermove", move);
           row.addEventListener("pointerleave", leave);
+          row.addEventListener("focusin", focus);
+          row.addEventListener("focusout", blur);
           cleanups.push(() => {
             row.removeEventListener("pointerenter", enter);
             row.removeEventListener("pointermove", move);
             row.removeEventListener("pointerleave", leave);
+            row.removeEventListener("focusin", focus);
+            row.removeEventListener("focusout", blur);
             gsap.killTweensOf(circle);
             gsap.set(circle, { clearProps: "all" });
           });
