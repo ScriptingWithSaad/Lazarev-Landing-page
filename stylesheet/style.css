@@ -16,6 +16,7 @@
   font-family: Manrope, Arial, sans-serif;
   scroll-padding-top: calc(var(--header) + 24px);
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   color-scheme: dark;
 }
 * {
@@ -264,13 +265,53 @@ main {
   text-align: center;
   gap: 0;
 }
+.article-highlights {
+  width: 100%;
+  max-width: 1400px;
+  margin-bottom: 58px;
+}
 .page-1-elem {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   width: 100%;
   max-width: 1400px;
-  margin-bottom: 58px;
+}
+.article-controls[hidden] {
+  display: none;
+}
+.article-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.article-actions {
+  display: flex;
+  gap: 6px;
+}
+.article-actions button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #4b4b4b;
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.article-actions button:hover {
+  background: #292929;
+  border-color: #858585;
+}
+.article-actions .icon {
+  width: 17px;
+  height: 17px;
 }
 .p1-elem-box {
   display: flex;
@@ -888,7 +929,43 @@ main {
   font-weight: 600;
 }
 .service-items {
-  overflow: hidden;
+  overflow: clip;
+}
+.service-intro {
+  max-width: 640px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 26px;
+}
+.service-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  min-height: 48px;
+  max-width: 100%;
+  margin: 0 0 30px;
+  padding: 12px 18px;
+  border: 1px solid #747cff;
+  border-radius: 28px;
+  font-size: 12px;
+  background: #202344;
+  transition: background 0.25s ease;
+}
+.service-cta:hover {
+  background: #303563;
+}
+#product-design .p10-elem-2 h5 {
+  border-color: #4b8060;
+  color: #90d3ac;
+}
+#product-design .service-cta {
+  border-color: #367c52;
+  background: #162c1f;
+}
+#product-design .service-cta:hover {
+  background: #234531;
 }
 .p10-elem-r-box {
   position: relative;
@@ -1216,6 +1293,31 @@ body.menu-active {
     background: transparent;
     font-size: 12px;
     font-weight: 600;
+    min-width: 90px;
+    flex-shrink: 0;
+    justify-content: center;
+    transition:
+      background 0.25s ease,
+      border-color 0.25s ease;
+  }
+  .menu-open .menu-toggle {
+    background: #292929;
+    border-color: #858585;
+  }
+  .menu-line {
+    transition: transform 0.28s var(--ease);
+  }
+  .menu-line:first-child {
+    transform-origin: 12px 8px;
+  }
+  .menu-line:last-child {
+    transform-origin: 12px 16px;
+  }
+  .menu-open .menu-line:first-child {
+    transform: translateY(4px) rotate(45deg);
+  }
+  .menu-open .menu-line:last-child {
+    transform: translateY(-4px) rotate(-45deg);
   }
   .menu-toggle svg {
     width: 20px;
@@ -1226,7 +1328,7 @@ body.menu-active {
     stroke-linecap: round;
   }
   .mid-nav {
-    display: none;
+    display: block;
     position: absolute;
     top: 100%;
     left: 0;
@@ -1238,9 +1340,24 @@ body.menu-active {
     -webkit-overflow-scrolling: touch;
     padding: 16px var(--gutter) 35px;
     border-bottom: 1px solid #555;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition:
+      opacity 0.24s ease,
+      transform 0.32s var(--ease),
+      visibility 0s 0.32s;
   }
   .menu-open .mid-nav {
-    display: block;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition:
+      opacity 0.24s ease,
+      transform 0.32s var(--ease),
+      visibility 0s;
   }
   .mid-nav-elem {
     border-bottom: 1px solid #3b3b3b;
@@ -1273,6 +1390,9 @@ body.menu-active {
   }
   .submenu-toggle[aria-expanded="true"] span {
     transform: rotate(45deg);
+  }
+  .submenu-toggle span {
+    transition: transform 0.26s var(--ease);
   }
   .submenu {
     position: static;
@@ -1309,6 +1429,8 @@ body.menu-active {
   .page-1-elem {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
+  }
+  .article-highlights {
     margin-bottom: 42px;
   }
   .p1-elem-box {
@@ -1373,10 +1495,12 @@ body.menu-active {
   .page-1-p-2 {
     font-size: 15px;
   }
-  .page-1-elem {
+  .article-highlights {
     margin-top: 32px;
     margin-bottom: 0;
     order: 3;
+  }
+  .page-1-elem {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .page-2 {
@@ -1605,18 +1729,30 @@ body.menu-active {
     margin-top: 24px;
   }
   .page-1-elem {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    overscroll-behavior-x: contain;
-    padding-bottom: 10px;
-    gap: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: #777 #222;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
   }
-  .page-1-elem > a {
-    flex: 0 0 230px;
-    scroll-snap-align: start;
+  .article-carousel .page-1-elem > a {
+    grid-area: 1 / 1;
+    min-width: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-24px);
+    transition:
+      opacity 0.45s ease,
+      transform 0.55s var(--ease),
+      visibility 0s 0.55s;
+  }
+  .article-carousel .page-1-elem > a.article-current {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(0);
+    transition:
+      opacity 0.45s ease,
+      transform 0.55s var(--ease),
+      visibility 0s;
   }
   .p1-elem-box {
     min-height: 76px;
@@ -1849,6 +1985,10 @@ html:not(.js) .submenu-toggle {
 }
 html:not(.js) .mid-nav {
   display: flex;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
   position: static;
   flex-wrap: wrap;
   gap: 8px 20px;
