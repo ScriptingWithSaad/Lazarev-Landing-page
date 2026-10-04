@@ -1,6 +1,6 @@
 @font-face {
   font-family: Manrope;
-  src: url("../assets/fonts/manrope-variable.woff2") format("woff2");
+  src: url("../fonts/manrope-variable.woff2") format("woff2");
   font-weight: 200 800;
   font-display: swap;
 }
