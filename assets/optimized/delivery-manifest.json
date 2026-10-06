@@ -1,0 +1,103 @@
+{
+  "previews": {
+    "reel": {
+      "previous_bytes": 4076555,
+      "variants": {
+        "1280": {
+          "size": [
+            1280,
+            720
+          ],
+          "fps": 30.0,
+          "duration": 12.0,
+          "bytes": 4018450
+        },
+        "960": {
+          "size": [
+            960,
+            540
+          ],
+          "fps": 30.0,
+          "duration": 12.0,
+          "bytes": 2517079
+        }
+      }
+    },
+    "accern": {
+      "previous_bytes": 1730081,
+      "variants": {
+        "1280": {
+          "size": [
+            1200,
+            600
+          ],
+          "fps": 30.0,
+          "duration": 19.4,
+          "bytes": 1694216
+        },
+        "960": {
+          "size": [
+            960,
+            480
+          ],
+          "fps": 30.0,
+          "duration": 19.4,
+          "bytes": 1139981
+        }
+      }
+    },
+    "blockbeat": {
+      "previous_bytes": 2788403,
+      "variants": {
+        "1280": {
+          "size": [
+            1280,
+            640
+          ],
+          "fps": 30.0,
+          "duration": 17.93,
+          "bytes": 2746956
+        },
+        "960": {
+          "size": [
+            960,
+            480
+          ],
+          "fps": 30.0,
+          "duration": 17.93,
+          "bytes": 1812369
+        }
+      }
+    }
+  },
+  "images": {
+    "flower-640.webp": {
+      "size": [
+        640,
+        354
+      ],
+      "bytes": 55018
+    },
+    "flower-960.webp": {
+      "size": [
+        960,
+        530
+      ],
+      "bytes": 107400
+    },
+    "flower-1440.webp": {
+      "size": [
+        1440,
+        796
+      ],
+      "bytes": 218856
+    },
+    "magnifier-480.webp": {
+      "size": [
+        480,
+        439
+      ],
+      "bytes": 48224
+    }
+  }
+}

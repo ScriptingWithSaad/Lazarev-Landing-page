@@ -15,7 +15,8 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   font-family: Manrope, Arial, sans-serif;
   scroll-padding-top: calc(var(--header) + 24px);
-  scroll-behavior: smooth;
+  /* Explicit anchor navigation supplies its easing; ordinary scroll/refresh stays native. */
+  scroll-behavior: auto;
   scrollbar-gutter: stable;
   color-scheme: dark;
 }

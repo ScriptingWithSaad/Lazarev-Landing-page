@@ -22,20 +22,43 @@
   let introPlayed = false;
   let refreshTimer;
   let scrollRefreshUntil = 0;
+  let gestureUntil = 0;
+  let layoutWidth = innerWidth;
+  let layoutHeight = innerHeight;
   let menuCloseTimer;
   const refresh = () => {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => {
       // ScrollTrigger refresh briefly restores scroll positions; let navigation finish first.
-      if (performance.now() < scrollRefreshUntil) {
+      if (performance.now() < Math.max(scrollRefreshUntil, gestureUntil)) {
         refresh();
         return;
       }
       lenis?.resize();
       if (canAnimate) ScrollTrigger.refresh();
-    }, 140);
+    }, 200);
   };
-  if (canAnimate) gsap.registerPlugin(ScrollTrigger);
+  function layoutResize() {
+    const width = innerWidth;
+    const height = innerHeight;
+    const heightChange = Math.abs(height - layoutHeight);
+    if (
+      width === layoutWidth &&
+      (heightChange === 0 ||
+        (mobile.matches && heightChange < layoutHeight * 0.25))
+    )
+      return;
+    layoutWidth = width;
+    layoutHeight = height;
+    refresh();
+  }
+  if (canAnimate) {
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.config({
+      ignoreMobileResize: true,
+      autoRefreshEvents: "DOMContentLoaded,load",
+    });
+  }
 
   function dropdown(open) {
     dropdownWanted = open && !mobile.matches;
@@ -68,17 +91,24 @@
   }
   function closeMenu(restoreFocus = false) {
     const wasOpen = nav.classList.contains("menu-open");
+    if (!wasOpen) {
+      if (dropdownWanted) dropdown(false);
+      return;
+    }
     clearTimeout(menuCloseTimer);
     nav.classList.remove("menu-open");
     document.body.classList.remove("menu-active");
     menu.setAttribute("aria-expanded", "false");
     main.inert = false;
     navLinks.inert = mobile.matches;
+    if (!dialog.open) lenis?.start();
     if (wasOpen && mobile.matches && !reduced.matches)
       menuCloseTimer = setTimeout(resetMenuGroups, 320);
     else resetMenuGroups();
     if (restoreFocus) menu.focus({ preventScroll: true });
     syncArticles();
+    syncBackground();
+    projects.forEach((state) => state.sync());
   }
   navLinks.inert = mobile.matches;
   menu.addEventListener("click", () => {
@@ -89,7 +119,10 @@
     menu.setAttribute("aria-expanded", "true");
     main.inert = true;
     navLinks.inert = false;
+    lenis?.stop();
     syncArticles();
+    syncBackground();
+    projects.forEach((state) => state.sync());
   });
   groups.forEach((group) => {
     const toggle = group.querySelector(".submenu-toggle");
@@ -153,12 +186,14 @@
   document.addEventListener("pointerdown", (event) => {
     if (dialog.open) return;
     if (!nav.contains(event.target)) {
-      closeMenu();
-      dropdown(false);
+      if (nav.classList.contains("menu-open")) closeMenu();
+      else if (dropdownWanted) dropdown(false);
     }
   });
   mobile.addEventListener("change", () => {
     closeMenu();
+    resetMenuGroups();
+    navLinks.inert = mobile.matches;
     refresh();
   });
 
@@ -331,7 +366,12 @@
   let backgroundVisible = false;
   function attachSource(video) {
     if (!video.getAttribute("src")) {
-      video.src = video.dataset.src;
+      const pixels =
+        (video.clientWidth || innerWidth) * (devicePixelRatio || 1);
+      video.src =
+        video.dataset.srcCompact && (pixels <= 960 || saveData)
+          ? video.dataset.srcCompact
+          : video.dataset.src;
       video.load();
     }
   }
@@ -341,6 +381,7 @@
       reduced.matches ||
       saveData ||
       document.hidden ||
+      nav.classList.contains("menu-open") ||
       dialog.open
     ) {
       background.pause();
@@ -355,6 +396,7 @@
           reduced.matches ||
           saveData ||
           document.hidden ||
+          nav.classList.contains("menu-open") ||
           dialog.open
         )
           background.pause();
@@ -381,6 +423,7 @@
       const shouldPlay =
         state.visible &&
         !document.hidden &&
+        !nav.classList.contains("menu-open") &&
         !dialog.open &&
         (state.userPlaying ||
           (state.hovered &&
@@ -399,6 +442,7 @@
           const wanted =
             state.visible &&
             !document.hidden &&
+            !nav.classList.contains("menu-open") &&
             !dialog.open &&
             (state.userPlaying ||
               (state.hovered &&
@@ -667,7 +711,7 @@
         lenis.on("scroll", ScrollTrigger.update);
         gsap.ticker.add(tick);
         gsap.ticker.lagSmoothing(0);
-        if (dialog.open) lenis.stop();
+        if (dialog.open || nav.classList.contains("menu-open")) lenis.stop();
         document.documentElement.classList.add("desktop-smooth");
         return () => {
           gsap.ticker.remove(tick);
@@ -747,6 +791,15 @@
       // A single timeline per column scrubs both directions on phones and desktops.
       document.querySelectorAll(".p11-elem-p").forEach((list, column) => {
         const bars = [...list.children];
+        let offsets;
+        const measureOffsets = () => {
+          const width = list.clientWidth;
+          const step = innerWidth / 100;
+          offsets = bars.map((bar, index) =>
+            Math.min(index * step, 72, Math.max(0, width - bar.offsetWidth)),
+          );
+        };
+        measureOffsets();
         gsap
           .timeline({
             scrollTrigger: {
@@ -756,19 +809,14 @@
               end: "top 10%",
               scrub: true,
               invalidateOnRefresh: true,
+              onRefreshInit: measureOffsets,
             },
           })
           .fromTo(
             bars,
             { x: 0 },
             {
-              x: (index, bar) => {
-                const available = Math.max(
-                  0,
-                  list.clientWidth - bar.offsetWidth,
-                );
-                return Math.min((index * innerWidth) / 100, 72, available);
-              },
+              x: (index) => offsets[index],
               duration: 1,
               ease: "none",
             },
@@ -851,24 +899,40 @@
             ease: "power3.out",
           });
           let hovered = false;
+          let bounds;
+          let radius;
+          let pointer;
+          let pointerFrame = 0;
+          const measure = () => {
+            bounds = row.getBoundingClientRect();
+            radius = circle.offsetWidth / 2;
+          };
+          const invalidate = () => {
+            bounds = undefined;
+          };
           const move = (event) => {
-            const rect = row.getBoundingClientRect();
-            const radius = circle.offsetWidth / 2;
-            xTo(
-              Math.max(
-                radius,
-                Math.min(event.clientX - rect.left, rect.width - radius),
-              ),
-            );
-            yTo(
-              Math.max(
-                radius,
-                Math.min(event.clientY - rect.top, rect.height - radius),
-              ),
-            );
+            pointer = { x: event.clientX, y: event.clientY };
+            if (pointerFrame) return;
+            pointerFrame = requestAnimationFrame(() => {
+              pointerFrame = 0;
+              if (!bounds) measure();
+              xTo(
+                Math.max(
+                  radius,
+                  Math.min(pointer.x - bounds.left, bounds.width - radius),
+                ),
+              );
+              yTo(
+                Math.max(
+                  radius,
+                  Math.min(pointer.y - bounds.top, bounds.height - radius),
+                ),
+              );
+            });
           };
           const enter = (event) => {
             hovered = true;
+            measure();
             move(event);
             gsap.to(circle, {
               opacity: 1,
@@ -889,10 +953,10 @@
             if (!row.contains(document.activeElement)) hide();
           };
           const focus = () => {
-            const rect = row.getBoundingClientRect();
+            measure();
             move({
-              clientX: rect.left + rect.width / 2,
-              clientY: rect.top + rect.height / 2,
+              clientX: bounds.left + bounds.width / 2,
+              clientY: bounds.top + bounds.height / 2,
             });
             gsap.to(circle, {
               opacity: 1,
@@ -909,12 +973,17 @@
           row.addEventListener("pointerleave", leave);
           row.addEventListener("focusin", focus);
           row.addEventListener("focusout", blur);
+          addEventListener("scroll", invalidate, { passive: true });
+          addEventListener("resize", invalidate, { passive: true });
           cleanups.push(() => {
             row.removeEventListener("pointerenter", enter);
             row.removeEventListener("pointermove", move);
             row.removeEventListener("pointerleave", leave);
             row.removeEventListener("focusin", focus);
             row.removeEventListener("focusout", blur);
+            removeEventListener("scroll", invalidate);
+            removeEventListener("resize", invalidate);
+            cancelAnimationFrame(pointerFrame);
             gsap.killTweensOf(circle);
             gsap.set(circle, { clearProps: "all" });
           });
@@ -964,10 +1033,17 @@
     });
   });
   document.fonts?.ready.then(refresh);
-  document.querySelectorAll("img").forEach((image) => {
-    if (!image.complete)
-      image.addEventListener("load", refresh, { once: true });
-  });
-  addEventListener("resize", refresh, { passive: true });
+  // Intrinsic image sizes reserve layout before lazy decoding; no refresh is needed.
+  addEventListener(
+    "scroll",
+    () => {
+      gestureUntil = performance.now() + 200;
+    },
+    { passive: true },
+  );
+  addEventListener("resize", layoutResize, { passive: true });
   addEventListener("pageshow", refresh);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) layoutResize();
+  });
 })();
